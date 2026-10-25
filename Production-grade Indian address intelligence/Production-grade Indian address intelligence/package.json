@@ -1,0 +1,19 @@
+{
+  "name": "mdds-platform",
+  "private": true,
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace @mdds/api\" \"npm run dev --workspace @mdds/web\"",
+    "build": "npm run build --workspace @mdds/api && npm run build --workspace @mdds/web",
+    "db:generate": "npm run db:generate --workspace @mdds/api",
+    "db:migrate": "npm run db:migrate --workspace @mdds/api",
+    "db:deploy": "npm run db:deploy --workspace @mdds/api",
+    "db:status": "npm run db:status --workspace @mdds/api",
+    "db:resolve": "npm run db:resolve --workspace @mdds/api",
+    "db:seed": "npm run db:seed --workspace @mdds/api",
+    "db:import": "npm run db:import --workspace @mdds/api"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}

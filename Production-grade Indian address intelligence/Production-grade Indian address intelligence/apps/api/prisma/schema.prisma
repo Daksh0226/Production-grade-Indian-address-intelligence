@@ -1,0 +1,190 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  CLIENT
+}
+
+enum PlanType {
+  FREE
+  PREMIUM
+  PRO
+  UNLIMITED
+}
+
+enum UserStatus {
+  PENDING_APPROVAL
+  ACTIVE
+  SUSPENDED
+}
+
+model Country {
+  id        String   @id @default(cuid())
+  code      String   @unique
+  name      String
+  states    State[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model State {
+  id         String            @id @default(cuid())
+  code       String
+  name       String
+  countryId  String
+  country    Country           @relation(fields: [countryId], references: [id], onDelete: Cascade)
+  districts  District[]
+  userAccess UserStateAccess[]
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+  @@unique([countryId, code])
+}
+
+model District {
+  id           String        @id @default(cuid())
+  code         String
+  name         String
+  stateId      String
+  state        State         @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  subDistricts SubDistrict[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  @@unique([stateId, code])
+}
+
+model SubDistrict {
+  id         String     @id @default(cuid())
+  code       String
+  name       String
+  districtId String
+  district   District   @relation(fields: [districtId], references: [id], onDelete: Cascade)
+  villages   Village[]
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  @@unique([districtId, code])
+}
+
+model Village {
+  id            String      @id @default(cuid())
+  code          String
+  name          String
+  subDistrictId String
+  subDistrict   SubDistrict @relation(fields: [subDistrictId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  @@unique([subDistrictId, code])
+  @@index([name])
+}
+
+model User {
+  id           String            @id @default(cuid())
+  email        String            @unique
+  passwordHash String
+  businessName String?
+  gstNumber    String?
+  phoneNumber  String?
+  role         UserRole          @default(CLIENT)
+  planType     PlanType          @default(FREE)
+  status       UserStatus        @default(PENDING_APPROVAL)
+  // Spec 11.2 — custom / temporary daily limit overrides (enterprise, holiday season)
+  dailyLimitOverride     Int?
+  limitOverrideExpiresAt DateTime?
+  autoSuspendEnabled     Boolean   @default(false)
+  apiKeys      ApiKey[]
+  apiLogs      ApiLog[]
+  stateAccess  UserStateAccess[]
+  adminNotes   AdminNote[]
+  usageAlerts  UsageAlert[]
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+}
+
+enum UsageAlertKind {
+  LIMIT_80
+  LIMIT_95
+  LIMIT_EXCEEDED
+  AUTO_SUSPENDED
+  USAGE_SPIKE
+  HIGH_ERROR_RATE
+}
+
+model UsageAlert {
+  id         String          @id @default(cuid())
+  userId     String
+  user       User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind       UsageAlertKind
+  threshold  Int
+  used       Int
+  limit      Int
+  emailed    Boolean         @default(false)
+  emailStatus String         @default("LOGGED")
+  onDashboard Boolean        @default(true)
+  sentAt     DateTime?
+  createdAt  DateTime        @default(now())
+  @@index([userId, kind, createdAt])
+  @@index([kind, createdAt])
+  @@index([createdAt])
+}
+
+model AdminNote {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  authorId    String?
+  authorEmail String
+  body        String
+  createdAt   DateTime @default(now())
+  @@index([userId])
+}
+
+model ApiKey {
+  id         String   @id @default(cuid())
+  key        String   @unique
+  secretHash String
+  label      String
+  isActive   Boolean  @default(true)
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logs       ApiLog[]
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  @@index([userId])
+}
+
+model UserStateAccess {
+  userId    String
+  stateId   String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  state     State    @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  @@id([userId, stateId])
+}
+
+model ApiLog {
+  id           String   @id @default(cuid())
+  endpoint     String
+  method       String
+  responseTime Int
+  statusCode   Int
+  query        String?
+  ipAddress    String?
+  apiKeyId     String?
+  userId       String?
+  apiKey       ApiKey?  @relation(fields: [apiKeyId], references: [id], onDelete: SetNull)
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt    DateTime @default(now())
+  @@index([apiKeyId, createdAt])
+  @@index([userId, createdAt])
+  @@index([createdAt])
+  @@index([endpoint])
+}

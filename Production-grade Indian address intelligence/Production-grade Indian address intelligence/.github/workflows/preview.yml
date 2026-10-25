@@ -1,0 +1,61 @@
+# Spec 12.2 — Preview environment
+# Auto-deploys every pull request to {pr-number}.vercel.app for code review.
+# Previews share the existing databases; no migrations are run here (avoid racing prod).
+name: Preview Deploy
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Build & deploy preview
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build (API + Web)
+        run: npm run build
+
+      - name: Build with Vercel
+        run: npx vercel build --yes
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to Vercel (preview)
+        id: preview
+        run: |
+          PREVIEW_URL="$(npx vercel deploy --prebuilt --yes --token "$VERCEL_TOKEN")"
+          echo "preview_url=$PREVIEW_URL" >> "$GITHUB_OUTPUT"
+          echo "Preview deployed: $PREVIEW_URL"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      - name: Comment preview URL on PR
+        if: steps.preview.outputs.preview_url != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `Preview deployed for review: ${process.env.PREVIEW_URL}`,
+            });
+          env:
+            PREVIEW_URL: ${{ steps.preview.outputs.preview_url }}

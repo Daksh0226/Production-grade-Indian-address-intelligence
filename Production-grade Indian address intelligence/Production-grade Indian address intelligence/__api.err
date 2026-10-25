@@ -1,0 +1,17 @@
+SyntaxError: Expected property name or '}' in JSON at position 1 (line 1 column 2)
+    at JSON.parse (<anonymous>)
+    at parse (C:\Users\gaubo\Desktop\Production-grade Indian address intelligence\node_modules\body-parser\lib\types\json.js:91:21)
+    at C:\Users\gaubo\Desktop\Production-grade Indian address intelligence\node_modules\body-parser\lib\read.js:162:18
+    at AsyncResource.runInAsyncScope (node:async_hooks:211:14)
+    at invokeCallback (C:\Users\gaubo\Desktop\Production-grade Indian address intelligence\node_modules\raw-body\index.js:238:16)
+    at done (C:\Users\gaubo\Desktop\Production-grade Indian address intelligence\node_modules\raw-body\index.js:227:7)
+    at IncomingMessage.onEnd (C:\Users\gaubo\Desktop\Production-grade Indian address intelligence\node_modules\raw-body\index.js:287:7)
+    at IncomingMessage.emit (node:events:524:28)
+    at endReadableNT (node:internal/streams/readable:1698:12)
+    at process.processTicksAndRejections (node:internal/process/task_queues:90:21) {
+  expose: true,
+  statusCode: 400,
+  status: 400,
+  body: '{email:admin@example.com,password:ChangeMe123!}',
+  type: 'entity.parse.failed'
+}

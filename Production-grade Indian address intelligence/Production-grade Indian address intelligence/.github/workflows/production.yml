@@ -1,0 +1,75 @@
+# Spec 12.2 — Production environment
+# Deploys to api.villageapi.com (live traffic) on every merge to `main`.
+# Database migrations are applied to production during the maintenance window,
+# verified, then the release is rolled out and smoke-tested.
+name: Production Deploy
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+jobs:
+  migrate-and-deploy:
+    name: Migrate & deploy production
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npm run db:generate
+        working-directory: apps/api
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+
+      # Maintenance-window data migration. Assumes a backup was taken beforehand
+      # (see README "Database Migration Strategy").
+      - name: Apply migrations to production database
+        run: npm run db:deploy
+        working-directory: apps/api
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+
+      - name: Verify data integrity (validation queries)
+        run: node scripts/db-verify.mjs
+        working-directory: apps/api
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+
+      - name: Build (API + Web)
+        run: npm run build
+        env:
+          VITE_API_URL: ${{ secrets.PROD_VITE_API_URL }}
+
+      - name: Build with Vercel
+        run: npx vercel build --prod --yes
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy to Vercel (production)
+        run: npx vercel deploy --prebuilt --prod --yes --token "$VERCEL_TOKEN"
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+
+      - name: Smoke check
+        run: |
+          sleep 5
+          curl -fsS --retry 20 --retry-connrefused --retry-delay 5 \
+            https://api.villageapi.com/v1/health

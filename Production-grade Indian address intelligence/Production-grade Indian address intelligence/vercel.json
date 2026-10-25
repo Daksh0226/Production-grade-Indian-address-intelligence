@@ -1,0 +1,16 @@
+{
+  "framework": null,
+  "buildCommand": "npm run build",
+  "outputDirectory": "apps/web/dist",
+  "functions": {
+    "apps/api/src/index.ts": {
+      "includeFiles": "apps/api/prisma/schema.prisma"
+    }
+  },
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "/apps/api/src/index.ts" },
+    { "source": "/v1/:path*", "destination": "/apps/api/src/index.ts" },
+    { "source": "/auth/:path*", "destination": "/apps/api/src/index.ts" },
+    { "source": "/(.*)", "destination": "/index.html" }
+  ]
+}
